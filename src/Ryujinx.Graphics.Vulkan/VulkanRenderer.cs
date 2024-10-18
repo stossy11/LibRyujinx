@@ -72,6 +72,8 @@ namespace Ryujinx.Graphics.Vulkan
 
         public IWindow Window => _window;
 
+        public SurfaceTransformFlagsKHR CurrentTransform => _window.CurrentTransform;
+
         private readonly Func<Instance, Vk, SurfaceKHR> _getSurface;
         private readonly Func<string[]> _getRequiredExtensions;
         private readonly string _preferredGpuId;
@@ -105,7 +107,7 @@ namespace Ryujinx.Graphics.Vulkan
             {
                 MVKInitialization.Initialize();
 
-                // Any device running on MacOS is using MoltenVK, even Intel and AMD vendors.
+                // Any device running on Darwin is using MoltenVK, even Intel and AMD vendors.
                 IsMoltenVk = true;
             }
         }
@@ -289,6 +291,8 @@ namespace Ryujinx.Graphics.Vulkan
 
             ref var properties = ref properties2.Properties;
 
+            Vendor = VendorUtils.FromId(properties.VendorID);
+
             ulong minResourceAlignment = Math.Max(
                 Math.Max(
                     properties.Limits.MinStorageBufferOffsetAlignment,
@@ -345,7 +349,7 @@ namespace Ryujinx.Graphics.Vulkan
             Api.TryGetDeviceExtension(_instance.Instance, _device, out ExtExternalMemoryHost hostMemoryApi);
             HostMemoryAllocator = new HostMemoryAllocator(MemoryAllocator, Api, hostMemoryApi, _device);
 
-            CommandBufferPool = new CommandBufferPool(Api, _device, Queue, QueueLock, queueFamilyIndex);
+            CommandBufferPool = new CommandBufferPool(Api, _device, Queue, QueueLock, queueFamilyIndex, Vendor == Vendor.Qualcomm);
 
             DescriptorSetManager = new DescriptorSetManager(_device, PipelineBase.DescriptorSetLayouts);
 
@@ -612,6 +616,7 @@ namespace Ryujinx.Graphics.Vulkan
                 supportsNonConstantTextureOffset: false,
                 supportsScaledVertexFormats: FormatCapabilities.SupportsScaledVertexFormats(),
                 supportsShaderBallot: false,
+                supportsShaderBallotDivergence: Vendor != Vendor.Qualcomm,
                 supportsShaderBarrierDivergence: Vendor != Vendor.Intel,
                 supportsShaderFloat64: Capabilities.SupportsShaderFloat64,
                 supportsTextureGatherOffsets: features2.Features.ShaderImageGatherExtended && !IsMoltenVk,
@@ -694,8 +699,6 @@ namespace Ryujinx.Graphics.Vulkan
             var properties = _physicalDevice.PhysicalDeviceProperties;
 
             string vendorName = VendorUtils.GetNameFromId(properties.VendorID);
-
-            Vendor = VendorUtils.FromId(properties.VendorID);
 
             IsAmdWindows = Vendor == Vendor.Amd && OperatingSystem.IsWindows();
             IsIntelWindows = Vendor == Vendor.Intel && OperatingSystem.IsWindows();
@@ -840,6 +843,15 @@ namespace Ryujinx.Graphics.Vulkan
         public void OnScreenCaptured(ScreenCaptureImageInfo bitmap)
         {
             ScreenCaptured?.Invoke(this, bitmap);
+        }
+
+        internal unsafe void RecreateSurface()
+        {
+            SurfaceApi.DestroySurface(_instance.Instance, _surface, null);
+
+            _surface = _getSurface(_instance.Instance, Api);
+
+            (_window as Window)?.SetSurface(_surface);
         }
 
         public unsafe void Dispose()

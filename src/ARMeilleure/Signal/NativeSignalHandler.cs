@@ -2,6 +2,7 @@
 using ARMeilleure.Memory;
 using ARMeilleure.Translation;
 using ARMeilleure.Translation.Cache;
+using Ryujinx.Common;
 using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -114,6 +115,12 @@ namespace ARMeilleure.Signal
 
                 if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS() || OperatingSystem.IsIOS())
                 {
+                    if (PlatformInfo.IsBionic)
+                    {
+                        config.StructAddressOffset = 16; // si_addr
+                        config.StructWriteOffset = 8; // si_code
+                    }
+
                     _signalHandlerPtr = Marshal.GetFunctionPointerForDelegate(GenerateUnixSignalHandler(_handlerConfig));
 
                     if (customSignalHandlerFactory != null)
@@ -143,6 +150,21 @@ namespace ARMeilleure.Signal
 
                 _initialized = true;
             }
+        }
+
+        public static void InstallUnixAlternateStackForCurrentThread(IntPtr stackPtr, ulong stackSize)
+        {
+            UnixSignalHandlerRegistration.RegisterAlternateStack(stackPtr, stackSize);
+        }
+
+        public static void UninstallUnixAlternateStackForCurrentThread()
+        {
+            UnixSignalHandlerRegistration.UnregisterAlternateStack();
+        }
+
+        public static void InstallUnixSignalHandler(int sigNum, IntPtr action)
+        {
+            UnixSignalHandlerRegistration.RegisterExceptionHandler(sigNum, action);
         }
 
         private static unsafe ref SignalHandlerConfig GetConfigRef()

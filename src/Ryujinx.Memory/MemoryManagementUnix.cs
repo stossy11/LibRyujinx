@@ -16,15 +16,15 @@ namespace Ryujinx.Memory
 
         public static IntPtr Allocate(ulong size, bool forJit)
         {
-            return AllocateInternal(size, MmapProts.PROT_READ | MmapProts.PROT_WRITE, forJit);
+            return AllocateInternal(size, MmapProts.PROT_READ | MmapProts.PROT_WRITE, forJit, false);
         }
 
         public static IntPtr Reserve(ulong size, bool forJit)
         {
-            return AllocateInternal(size, MmapProts.PROT_NONE, forJit);
+            return AllocateInternal(size, MmapProts.PROT_NONE, forJit, false);
         }
 
-        private static IntPtr AllocateInternal(ulong size, MmapProts prot, bool forJit, bool shared = false)
+        private static IntPtr AllocateInternal(ulong size, MmapProts prot, bool forJit, bool shared)
         {
             MmapFlags flags = MmapFlags.MAP_ANONYMOUS;
 
@@ -146,6 +146,7 @@ namespace Ryujinx.Memory
         public unsafe static IntPtr CreateSharedMemory(ulong size, bool reserve)
         {
             int fd;
+            Logger.Debug?.Print(LogClass.Cpu, $"Operating System: {RuntimeInformation.OSDescription}");
 
             if (OperatingSystem.IsIOS())
             {
@@ -172,6 +173,24 @@ namespace Ryujinx.Memory
                         throw new SystemException(Marshal.GetLastPInvokeErrorMessage());
                     }
                 }
+            }
+            else if (Ryujinx.Common.PlatformInfo.IsBionic)
+            {
+                byte[] memName = "Ryujinx-XXXXXX"u8.ToArray();
+
+                Logger.Debug?.Print(LogClass.Cpu, $"Creating Android SharedMemory of size:{size}");
+
+                fixed (byte* pMemName = memName)
+                {
+                    fd = ASharedMemory_create((IntPtr)pMemName, (nuint)size);
+                    if (fd <= 0)
+                    {
+                        throw new OutOfMemoryException();
+                    }
+                }
+
+                // ASharedMemory_create handle ftruncate for us.
+                return (IntPtr)fd;
             }
             else
             {

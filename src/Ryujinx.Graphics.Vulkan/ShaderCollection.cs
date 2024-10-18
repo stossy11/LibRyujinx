@@ -116,8 +116,10 @@ namespace Ryujinx.Graphics.Vulkan
 
             Stages = stages;
 
+            bool hasBatchedTextureBug = gd.Vendor == Vendor.Qualcomm;
+
             ClearSegments = BuildClearSegments(resourceLayout.Sets);
-            BindingSegments = BuildBindingSegments(resourceLayout.SetUsages);
+            BindingSegments = BuildBindingSegments(resourceLayout.SetUsages, hasBatchedTextureBug);
 
             _compileTask = Task.CompletedTask;
             _firstBackgroundUse = false;
@@ -189,7 +191,7 @@ namespace Ryujinx.Graphics.Vulkan
             return segments;
         }
 
-        private static ResourceBindingSegment[][] BuildBindingSegments(ReadOnlyCollection<ResourceUsageCollection> setUsages)
+        private static ResourceBindingSegment[][] BuildBindingSegments(ReadOnlyCollection<ResourceUsageCollection> setUsages, bool hasBatchedTextureBug)
         {
             ResourceBindingSegment[][] segments = new ResourceBindingSegment[setUsages.Count][];
 
@@ -206,6 +208,7 @@ namespace Ryujinx.Graphics.Vulkan
 
                     if (currentUsage.Binding + currentCount != usage.Binding ||
                         currentUsage.Type != usage.Type ||
+                        (IsReadOnlyTexture(currentUsage.Type) && hasBatchedTextureBug) ||
                         currentUsage.Stages != usage.Stages)
                     {
                         if (currentCount != 0)
@@ -239,6 +242,11 @@ namespace Ryujinx.Graphics.Vulkan
             }
 
             return segments;
+        }
+
+        private static bool IsReadOnlyTexture(ResourceType resourceType)
+        {
+            return resourceType == ResourceType.TextureAndSampler || resourceType == ResourceType.BufferTexture;
         }
 
         private async Task BackgroundCompilation()

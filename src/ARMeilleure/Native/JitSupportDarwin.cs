@@ -6,7 +6,7 @@ namespace ARMeilleure.Native
 {
     [SupportedOSPlatform("macos")]
     [SupportedOSPlatform("ios")]
-    static partial class JitSupportDarwin
+    internal static partial class JitSupportDarwin
     {
         [LibraryImport("libarmeilleure-jitsupport", EntryPoint = "armeilleure_jit_memcpy")]
         public static partial void Copy(IntPtr dst, IntPtr src, ulong n);

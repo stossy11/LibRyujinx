@@ -1,5 +1,6 @@
 using ARMeilleure.Memory;
 using ARMeilleure.Translation;
+using System;
 
 namespace Ryujinx.Cpu.Jit
 {

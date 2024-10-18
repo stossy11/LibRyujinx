@@ -14,10 +14,10 @@ namespace Ryujinx.Graphics.Vulkan
         private const int SurfaceHeight = 720;
 
         private readonly VulkanRenderer _gd;
-        private readonly SurfaceKHR _surface;
         private readonly PhysicalDevice _physicalDevice;
         private readonly Device _device;
         private SwapchainKHR _swapchain;
+        private SurfaceKHR _surface;
 
         private Image[] _swapchainImages;
         private Auto<DisposableImageView>[] _swapchainImageViews;
@@ -84,6 +84,12 @@ namespace Ryujinx.Graphics.Vulkan
             CreateSwapchain();
         }
 
+        internal void SetSurface(SurfaceKHR surface)
+        {
+            _surface = surface;
+            RecreateSwapchain();
+        }
+
         private unsafe void CreateSwapchain()
         {
             _gd.SurfaceApi.GetPhysicalDeviceSurfaceCapabilities(_physicalDevice, _surface, out var capabilities);
@@ -126,6 +132,8 @@ namespace Ryujinx.Graphics.Vulkan
 
             var oldSwapchain = _swapchain;
 
+            CurrentTransform = capabilities.CurrentTransform;
+
             var swapchainCreateInfo = new SwapchainCreateInfoKHR
             {
                 SType = StructureType.SwapchainCreateInfoKhr,
@@ -134,7 +142,7 @@ namespace Ryujinx.Graphics.Vulkan
                 ImageFormat = surfaceFormat.Format,
                 ImageColorSpace = surfaceFormat.ColorSpace,
                 ImageExtent = extent,
-                ImageUsage = ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.TransferDstBit | ImageUsageFlags.StorageBit,
+                ImageUsage = ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.TransferDstBit | (Ryujinx.Common.PlatformInfo.IsBionic ? 0 : ImageUsageFlags.StorageBit),
                 ImageSharingMode = SharingMode.Exclusive,
                 ImageArrayLayers = 1,
                 PreTransform = capabilities.CurrentTransform,
@@ -313,6 +321,10 @@ namespace Ryujinx.Graphics.Vulkan
                 {
                     RecreateSwapchain();
                 }
+                else if(acquireResult == Result.ErrorSurfaceLostKhr)
+                {
+                    _gd.RecreateSurface();
+                }
                 else
                 {
                     acquireResult.ThrowOnError();
@@ -467,6 +479,9 @@ namespace Ryujinx.Graphics.Vulkan
             {
                 _gd.SwapchainApi.QueuePresent(_gd.Queue, presentInfo);
             }
+
+            //While this does nothing in most cases, it's useful to notify the end of the frame.
+            swapBuffersCallback?.Invoke();
         }
 
         public override void SetAntiAliasing(AntiAliasing effect)
