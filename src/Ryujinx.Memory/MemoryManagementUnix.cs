@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
@@ -146,7 +146,7 @@ namespace Ryujinx.Memory
         public unsafe static IntPtr CreateSharedMemory(ulong size, bool reserve)
         {
             int fd;
-            Logger.Debug?.Print(LogClass.Cpu, $"Operating System: {RuntimeInformation.OSDescription}");
+            // Logger.Debug?.Print(LogClass.Cpu, $"Operating System: {RuntimeInformation.OSDescription}");
 
             if (OperatingSystem.IsIOS())
             {
@@ -178,7 +178,7 @@ namespace Ryujinx.Memory
             {
                 byte[] memName = "Ryujinx-XXXXXX"u8.ToArray();
 
-                Logger.Debug?.Print(LogClass.Cpu, $"Creating Android SharedMemory of size:{size}");
+                // .Debug?.Print(LogClass.Cpu, $"Creating Android SharedMemory of size:{size}");
 
                 fixed (byte* pMemName = memName)
                 {
